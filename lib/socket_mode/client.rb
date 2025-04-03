@@ -84,7 +84,14 @@ module SocketMode
             
             if data['envelope_id']
               ack = { envelope_id: data['envelope_id'] }.to_json
-              ws_connection.send(ack)
+              begin
+                ws_connection.send(ack)
+              rescue => e
+                puts "Failed to send acknowledge: #{e.message}"
+                if e.message.include?('closed')
+                  client.reconnect
+                end
+              end
             end
           rescue JSON::ParserError => e
             puts "JSON parse error: #{msg.data.inspect}" if ENV['DEBUG']
