@@ -110,7 +110,14 @@ module SocketMode
           if client.instance_variable_get(:@running)
             puts "5秒後に再接続します..."
             sleep 5
-            client.reconnect
+            begin
+              client.reconnect
+            rescue => err
+              puts "再接続中にエラーが発生しました: #{err.message}"
+              puts "30秒後に再度試行します..."
+              sleep 30
+              client.reconnect rescue nil
+            end
           end
         end
         
@@ -134,8 +141,18 @@ module SocketMode
         while client.instance_variable_get(:@running) && client.instance_variable_get(:@ws) && !client.instance_variable_get(:@ws).closed?
           begin
             client.instance_variable_get(:@ws).send({ type: 'ping' }.to_json)
+          rescue Errno::EPIPE => e
+            puts "Ping送信エラー: Broken pipe - WebSocket接続が切断されました"
+            puts "自動的に再接続します..."
+            client.reconnect
+            break
           rescue => e
             puts "Ping送信エラー: #{e.message}"
+            if e.message.include?('closed') || defined?(e.code)
+              puts "WebSocket接続が閉じられています。再接続します..."
+              client.reconnect
+              break
+            end
           end
           sleep 30
         end
