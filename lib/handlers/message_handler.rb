@@ -2,16 +2,31 @@ module Handlers
   class MessageHandler
     def initialize(web_client)
       @web_client = web_client
+      setup_dependencies
+    end
+    
+    def setup_dependencies
+      require 'redis'
+      require 'connection_pool'
+      require 'json'
+      require_relative '../../app/registry'
+      require_relative '../../app/libs/redis_connection'
+      require_relative '../../app/models/store'
+      
+      unless App::Registry.bot_token_client
+        App::Registry.register(:bot_token_client, @web_client)
+      end
     end
     
     def handle(event)
-      puts "メッセージハンドラが呼ばれました: #{event.inspect}" if ENV['DEBUG']
-      
       payload = event['payload']
       return unless payload && payload['event']
       
       message_event = payload['event']
+      
       return if message_event['subtype'] == 'bot_message'
+      
+      return if message_event['text'] =~ /\+\+|is up to [0-9]+ points!/
       
       event_type = message_event['type']
       return unless ['message', 'app_mention'].include?(event_type)
@@ -21,17 +36,42 @@ module Handlers
       user = message_event['user']
       thread_ts = message_event['thread_ts'] || message_event['ts']
       
-      puts "メッセージ受信: channel=#{channel}, user=#{user}, text=#{text}" if ENV['DEBUG']
+      entries = RedisConnection.pool.lrange('registered', 0, -1)
       
-      @web_client.chat_postMessage(
-        channel: channel,
-        text: "こんにちは <@#{user}>！Socket Mode接続テスト中です :wave:",
-        thread_ts: thread_ts
-      )
-      puts "メッセージ送信: channel=#{channel}"
+      mentioned_users = entries.select do |entry|
+        text =~ /<@#{entry}>/
+      end
+      
+      cid = channel
+      c = App::Model::Store.get(cid)
+      
+      mentioned_users.each do |uid|
+        message = RedisConnection.pool.get(uid)
+        
+        next unless message && c.fetch('enable', 1) == 1
+        
+        user_presence = App::Model::Store.get(uid)
+        
+        user_presence['mention_histotry'] ||= []
+        user_presence['mention_histotry'] = [] if user_presence['mention_histotry'].is_a?(Hash)
+        
+        user_presence['mention_histotry'] << {
+          channel: channel,
+          user: user,
+          text: text && text.gsub(/<@#{uid}>/, ''),
+          event_ts: message_event['ts']
+        }
+        
+        App::Model::Store.set(uid, user_presence)
+        
+        @web_client.chat_postMessage(
+          channel: channel,
+          text: "自動応答: #{message}",
+          thread_ts: thread_ts
+        )
+      end
     rescue => e
       puts "メッセージ処理エラー: #{e.message}"
-      puts e.backtrace.join("\n") if ENV['DEBUG']
     end
   end
 end 

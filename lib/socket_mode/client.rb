@@ -62,13 +62,11 @@ module SocketMode
         
         @ws.on :message do |msg|
           if msg.data.start_with?('Ping from')
-            puts "Slackサーバーからのping: #{msg.data}" if ENV['DEBUG']
             next
           end
           
           begin
             data = JSON.parse(msg.data)
-            puts "受信データ: #{data.inspect}" if ENV['DEBUG'] && data['type'] != 'hello'
             
             case data['type']
             when 'hello'
@@ -81,16 +79,12 @@ module SocketMode
             when 'slash_commands'
               client.send(:handle_slash_commands, data)
             when 'interactive'
-              puts "インタラクティブイベント受信" if ENV['DEBUG']
             else
-              puts "未知のイベントタイプ: #{data['type']}" if ENV['DEBUG']
             end
             
-            # イベント受信の確認応答
             if data['envelope_id']
               ack = { envelope_id: data['envelope_id'] }.to_json
               ws_connection.send(ack)
-              puts "Acknowledge送信: #{data['envelope_id']}" if ENV['DEBUG']
             end
           rescue JSON::ParserError => e
             puts "JSONパースエラー: #{msg.data.inspect}"
