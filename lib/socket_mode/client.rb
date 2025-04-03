@@ -65,6 +65,8 @@ module SocketMode
             next
           end
           
+          client.instance_variable_set(:@last_activity_time, Time.now)
+          
           begin
             data = JSON.parse(msg.data)
             
@@ -103,6 +105,10 @@ module SocketMode
         
         @ws.on :error do |e|
           puts "WebSocket error: #{e.message}"
+          if client.instance_variable_get(:@running)
+            puts "Reconnecting due to WebSocket error..." if ENV['DEBUG']
+            client.reconnect
+          end
         end
         
         @ws.on :close do |e|
@@ -137,10 +143,19 @@ module SocketMode
       @ping_thread&.kill
       
       client = self
+      @last_activity_time = Time.now
+      
       @ping_thread = Thread.new do
         while client.instance_variable_get(:@running) && client.instance_variable_get(:@ws) && !client.instance_variable_get(:@ws).closed?
           begin
+            if Time.now - client.instance_variable_get(:@last_activity_time) > 60
+              puts "No activity for over 60 seconds. Reconnecting..." if ENV['DEBUG']
+              client.reconnect
+              break
+            end
+            
             client.instance_variable_get(:@ws).send({ type: 'ping' }.to_json)
+            client.instance_variable_set(:@last_activity_time, Time.now)
           rescue Errno::EPIPE => e
             puts "Ping send error: Broken pipe - WebSocket connection is closed"
             puts "Reconnecting automatically..."
