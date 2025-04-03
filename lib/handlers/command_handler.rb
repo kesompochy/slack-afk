@@ -61,7 +61,7 @@ module Handlers
       end
       
       afk = App::Model::Afk.new
-      afk.bot_run(user_id, params)
+      afk.run(user_id, params)
     end
     
     def handle_lunch_command(text, user_id, channel_id)
@@ -77,7 +77,7 @@ module Handlers
       }
       
       lunch = App::Model::Lunch.new
-      lunch.bot_run(user_id, params)
+      lunch.run(user_id, params)
     end
     
     def handle_comeback_command(text, user_id, channel_id)
@@ -94,7 +94,7 @@ module Handlers
       }
       
       comeback = App::Model::Comeback.new
-      comeback.bot_run(user_id, params)
+      comeback.run(user_id, params)
     end
     
     def get_username_safe(user_id)
