@@ -6,7 +6,8 @@ WORKDIR /opt/away-from-keyboard
 RUN gem install bundler -N
 RUN bundle install --deployment --without development,test -j4
 
-ADD . /opt/away-from-keyboard
-RUN apt-get update -qqy && apt upgrade -qqy && apt-get clean&& rm -rf /var/lib/apt/lists/*
+COPY socket_bot.rb lib/ app/ config/ presence.rb join.rb app.rb /opt/away-from-keyboard/
+RUN apt-get update -qqy && apt upgrade -qqy && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 ENTRYPOINT ["bundle", "exec"]
-CMD ["away-from-keyboard"]
+CMD ["ruby", "socket_bot.rb"]
