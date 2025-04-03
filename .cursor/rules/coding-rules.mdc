@@ -1,0 +1,16 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Coding Rules
+
+## Test First
+
+**For all new features, always implement using the test-first approach.**
+
+Specifically:
+- Always create tests before implementing new features
+- Confirm that tests fail before starting implementation
+- Ensure tests pass with minimal implementation
+- Refactor as necessary afterward
