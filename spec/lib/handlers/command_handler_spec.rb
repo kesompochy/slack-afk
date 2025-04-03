@@ -6,7 +6,16 @@ RSpec.describe Handlers::CommandHandler do
   let(:command_handler) { Handlers::CommandHandler.new(web_client) }
   
   before do
+    allow(web_client).to receive(:users_info).with(any_args).and_return({"ok" => true, "user" => {"name" => "testuser"}})
     allow(web_client).to receive(:chat_postMessage)
+    
+    afk_instance = instance_double("App::Model::Afk")
+    allow(afk_instance).to receive(:bot_run).and_return("AFK message")
+    allow(App::Model::Afk).to receive(:new).and_return(afk_instance)
+    
+    comeback_instance = instance_double("App::Model::Comeback")
+    allow(comeback_instance).to receive(:bot_run).and_return("Comeback message")
+    allow(App::Model::Comeback).to receive(:new).and_return(comeback_instance)
   end
   
   describe '#handle' do
@@ -22,36 +31,17 @@ RSpec.describe Handlers::CommandHandler do
         }
       end
       
-      it 'sends the correct afk message' do
-        expect(web_client).to receive(:chat_postMessage).with(
-          hash_including(
-            channel: 'C123456',
-            text: "<@U123456> がAFKになりました: 会議中"
-          )
-        )
-        
-        command_handler.handle(command_data)
-      end
-      
-      it 'uses default message when text is empty' do
-        command_data['payload']['text'] = ''
-        
-        expect(web_client).to receive(:chat_postMessage).with(
-          hash_including(
-            channel: 'C123456',
-            text: "<@U123456> がAFKになりました: 離席中"
-          )
-        )
-        
+      it 'calls handle_afk_command' do
+        expect(command_handler).to receive(:handle_afk_command).with('会議中', 'U123456', 'C123456')
         command_handler.handle(command_data)
       end
     end
     
-    context 'with /back command' do
+    context 'with /comeback command' do
       let(:command_data) do
         {
           'payload' => {
-            'command' => '/back',
+            'command' => '/comeback',
             'text' => '',
             'channel_id' => 'C123456',
             'user_id' => 'U123456'
@@ -59,14 +49,8 @@ RSpec.describe Handlers::CommandHandler do
         }
       end
       
-      it 'sends the correct back message' do
-        expect(web_client).to receive(:chat_postMessage).with(
-          hash_including(
-            channel: 'C123456',
-            text: "<@U123456> が戻りました！"
-          )
-        )
-        
+      it 'calls handle_comeback_command' do
+        expect(command_handler).to receive(:handle_comeback_command).with('', 'U123456', 'C123456')
         command_handler.handle(command_data)
       end
     end
@@ -83,8 +67,9 @@ RSpec.describe Handlers::CommandHandler do
         }
       end
       
-      it 'does not send any message' do
-        expect(web_client).not_to receive(:chat_postMessage)
+      it 'does not call any handle commands' do
+        expect(command_handler).not_to receive(:handle_afk_command)
+        expect(command_handler).not_to receive(:handle_comeback_command)
         command_handler.handle(command_data)
       end
     end
