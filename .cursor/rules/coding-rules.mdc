@@ -14,3 +14,11 @@ Specifically:
 - Confirm that tests fail before starting implementation
 - Ensure tests pass with minimal implementation
 - Refactor as necessary afterward
+
+## Code Comments
+
+**Write comments only for non-obvious code.**
+
+Specifically:
+- Do not comment on self-evident code
+- Only comment on things that are not clear from reading the code
