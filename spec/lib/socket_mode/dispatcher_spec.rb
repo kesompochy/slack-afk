@@ -7,8 +7,8 @@ RSpec.describe SocketMode::Dispatcher do
   
   describe '#initialize' do
     it 'sets up message and command handlers' do
-      expect(dispatcher.message_handler).to be_a(SocketMode::MessageHandler)
-      expect(dispatcher.command_handler).to be_a(SocketMode::CommandHandler)
+      expect(dispatcher.message_handler).to be_a(Handlers::MessageHandler)
+      expect(dispatcher.command_handler).to be_a(Handlers::CommandHandler)
     end
   end
   
