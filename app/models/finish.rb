@@ -1,3 +1,5 @@
+require 'active_support/time'
+
 module App
   module Model
     class Finish < Base

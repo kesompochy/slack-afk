@@ -32,6 +32,17 @@ module Handlers
         handle_lunch_command(text, user_id, channel_id)
       when '/comeback'
         handle_comeback_command(text, user_id, channel_id)
+      when '/finish', '/end', '/afk_end'
+        handle_finish_command(text, user_id, channel_id)
+      when '/start', '/afk_start'
+        handle_start_command(text, user_id, channel_id)
+      when '/enable_afk', '/afk_enable'
+        handle_enable_afk_command(text, user_id, channel_id)
+      when '/disable_afk', '/afk_disable'
+        handle_disable_afk_command(text, user_id, channel_id)
+      when %r{^/afk_([0-9]+)}
+        minutes = $1
+        handle_timed_afk_command(text, user_id, channel_id, minutes)
       else
         puts "Unknown command: #{command}"
       end
@@ -95,6 +106,87 @@ module Handlers
       
       comeback = App::Model::Comeback.new
       comeback.run(user_id, params)
+    end
+    
+    def handle_finish_command(text, user_id, channel_id)
+      require_relative '../../app/mixins/slack_api_callable'
+      require_relative '../../app/models/base'
+      require_relative '../../app/models/store'
+      require_relative '../../app/models/finish'
+      
+      params = {
+        "user_id" => user_id,
+        "channel_id" => channel_id,
+        "text" => text || "",
+        "user_name" => get_username_safe(user_id)
+      }
+      
+      finish = App::Model::Finish.new
+      finish.run(user_id, params)
+    end
+    
+    def handle_start_command(text, user_id, channel_id)
+      require_relative '../../app/mixins/slack_api_callable'
+      require_relative '../../app/models/base'
+      require_relative '../../app/models/store'
+      require_relative '../../app/models/start'
+      
+      params = {
+        "user_id" => user_id,
+        "channel_id" => channel_id,
+        "text" => text || "",
+        "user_name" => get_username_safe(user_id)
+      }
+      
+      start = App::Model::Start.new
+      start.run(user_id, params)
+    end
+    
+    def handle_enable_afk_command(text, user_id, channel_id)
+      require_relative '../../app/mixins/slack_api_callable'
+      require_relative '../../app/models/store'
+      
+      c = App::Model::Store.get(channel_id)
+      c['enable'] = 1
+      App::Model::Store.set(channel_id, c)
+      
+      @web_client.chat_postMessage(
+        channel: channel_id,
+        text: "このチャンネルでの代理応答を有効にしました",
+        as_user: true
+      )
+    end
+    
+    def handle_disable_afk_command(text, user_id, channel_id)
+      require_relative '../../app/mixins/slack_api_callable'
+      require_relative '../../app/models/store'
+      
+      c = App::Model::Store.get(channel_id)
+      c['enable'] = 0
+      App::Model::Store.set(channel_id, c)
+      
+      @web_client.chat_postMessage(
+        channel: channel_id,
+        text: "このチャンネルでの代理応答を無効にしました",
+        as_user: true
+      )
+    end
+    
+    def handle_timed_afk_command(text, user_id, channel_id, minutes)
+      require_relative '../../app/mixins/slack_api_callable'
+      require_relative '../../app/models/base'
+      require_relative '../../app/models/afk'
+      
+      params = {
+        "user_id" => user_id,
+        "channel_id" => channel_id,
+        "text" => text || "",
+        "minute" => minutes,
+        "user_name" => get_username_safe(user_id)
+      }
+      
+      afk = App::Model::Afk.new
+      afk.run(user_id, params)
     end
     
     def get_username_safe(user_id)
