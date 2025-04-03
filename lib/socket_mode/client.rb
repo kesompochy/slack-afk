@@ -17,6 +17,9 @@ module SocketMode
       @socket_client = nil
       @ws = nil
       @dispatcher = Dispatcher.new(@web_client)
+      @running = false
+      @reconnect_interval = 30
+      @reset_thread = nil
     end
     
     def start
@@ -24,21 +27,61 @@ module SocketMode
       
       @main_thread = Thread.current
       @running = true
+      
+      start_periodic_reset
     end
     
     def stop
       @running = false
-      @ws.close if @ws && !@ws.closed?
+      stop_periodic_reset
+      close_connection
       puts "Socket Mode client stopped" if ENV['DEBUG']
     end
     
     def reconnect
-      stop
-      sleep 1
-      start
+      puts "Reconnecting Socket Mode client..." if ENV['DEBUG']
+      close_connection
+      sleep 2
+      connect_socket
     end
     
     private
+    
+    def close_connection
+      if @ws
+        begin
+          @ws.close if !@ws.closed?
+        rescue => e
+          puts "Error closing WebSocket connection: #{e.message}"
+        ensure
+          @ws = nil
+        end
+      end
+    end
+    
+    def start_periodic_reset
+      stop_periodic_reset if @reset_thread
+      
+      @reset_thread = Thread.new do
+        while @running
+          begin
+            sleep @reconnect_interval
+            puts "Performing scheduled connection reset" if ENV['DEBUG']
+            reconnect
+          rescue => e
+            puts "Error in reset thread: #{e.message}"
+            sleep 5
+          end
+        end
+      end
+    end
+    
+    def stop_periodic_reset
+      if @reset_thread && @reset_thread.alive?
+        @reset_thread.kill
+        @reset_thread = nil
+      end
+    end
     
     def connect_socket
       begin
@@ -63,8 +106,6 @@ module SocketMode
           if msg.data.start_with?('Ping from')
             next
           end
-          
-          client.instance_variable_set(:@last_activity_time, Time.now)
           
           begin
             data = JSON.parse(msg.data)
