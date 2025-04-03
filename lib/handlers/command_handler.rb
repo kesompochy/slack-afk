@@ -28,6 +28,8 @@ module Handlers
       case command
       when '/afk'
         handle_afk_command(text, user_id, channel_id)
+      when '/lunch'
+        handle_lunch_command(text, user_id, channel_id)
       when '/comeback'
         handle_comeback_command(text, user_id, channel_id)
       else
@@ -60,6 +62,22 @@ module Handlers
       
       afk = App::Model::Afk.new
       afk.bot_run(user_id, params)
+    end
+    
+    def handle_lunch_command(text, user_id, channel_id)
+      require_relative '../../app/mixins/slack_api_callable'
+      require_relative '../../app/models/base'
+      require_relative '../../app/models/lunch'
+      
+      params = {
+        "user_id" => user_id,
+        "channel_id" => channel_id,
+        "text" => text || "",
+        "user_name" => get_username_safe(user_id)
+      }
+      
+      lunch = App::Model::Lunch.new
+      lunch.bot_run(user_id, params)
     end
     
     def handle_comeback_command(text, user_id, channel_id)

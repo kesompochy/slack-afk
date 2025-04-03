@@ -55,6 +55,24 @@ RSpec.describe Handlers::CommandHandler do
       end
     end
     
+    context 'with /lunch command' do
+      let(:command_data) do
+        {
+          'payload' => {
+            'command' => '/lunch',
+            'text' => '社食',
+            'channel_id' => 'C123456',
+            'user_id' => 'U123456'
+          }
+        }
+      end
+      
+      it 'calls handle_lunch_command' do
+        expect(command_handler).to receive(:handle_lunch_command).with('社食', 'U123456', 'C123456')
+        command_handler.handle(command_data)
+      end
+    end
+    
     context 'with unknown command' do
       let(:command_data) do
         {

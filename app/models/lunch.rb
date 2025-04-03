@@ -6,6 +6,8 @@ module App
       end
 
       def bot_run(uid, params)
+        require_relative 'store'
+        
         unless params["text"].empty?
           RedisConnection.pool.set(uid, "#{params["user_name"]} はランチに行っています。「#{params["text"]}」")
         else
