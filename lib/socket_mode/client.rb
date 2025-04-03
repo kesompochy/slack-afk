@@ -70,6 +70,18 @@ module SocketMode
           begin
             data = JSON.parse(msg.data)
             
+            if data['envelope_id']
+              ack = { envelope_id: data['envelope_id'] }.to_json
+              begin
+                ws_connection.send(ack)
+              rescue => e
+                puts "Failed to send acknowledge: #{e.message}" if ENV['DEBUG']
+                if e.message.include?('closed')
+                  client.reconnect
+                end
+              end
+            end
+            
             case data['type']
             when 'hello'
               puts "Connected to Socket Mode" if ENV['DEBUG']
@@ -82,18 +94,6 @@ module SocketMode
               client.send(:handle_slash_commands, data)
             when 'interactive'
             else
-            end
-            
-            if data['envelope_id']
-              ack = { envelope_id: data['envelope_id'] }.to_json
-              begin
-                ws_connection.send(ack)
-              rescue => e
-                puts "Failed to send acknowledge: #{e.message}"
-                if e.message.include?('closed')
-                  client.reconnect
-                end
-              end
             end
           rescue JSON::ParserError => e
             puts "JSON parse error: #{msg.data.inspect}" if ENV['DEBUG']
