@@ -28,7 +28,6 @@ module SocketMode
     
     def stop
       @running = false
-      @ping_thread&.kill
       @ws.close if @ws && !@ws.closed?
       puts "Socket Mode client stopped" if ENV['DEBUG']
     end
@@ -128,49 +127,12 @@ module SocketMode
           end
         end
         
-        start_ping_thread
-        
         puts "Socket Mode connection started" if ENV['DEBUG']
       rescue Slack::Web::Api::Errors::SlackError => e
         puts "Slack API error: #{e.message}"
       rescue => e
         puts "Socket Mode initialization error: #{e.message}"
         puts e.backtrace.join("\n") if ENV['DEBUG']
-      end
-    end
-    
-    def start_ping_thread
-      @ping_thread&.kill
-      
-      client = self
-      @last_activity_time = Time.now
-      
-      @ping_thread = Thread.new do
-        while client.instance_variable_get(:@running) && client.instance_variable_get(:@ws) && !client.instance_variable_get(:@ws).closed?
-          begin
-            if Time.now - client.instance_variable_get(:@last_activity_time) > 60
-              puts "No activity for over 60 seconds. Reconnecting..." if ENV['DEBUG']
-              client.reconnect
-              break
-            end
-            
-            client.instance_variable_get(:@ws).send({ type: 'ping' }.to_json)
-            client.instance_variable_set(:@last_activity_time, Time.now)
-          rescue Errno::EPIPE => e
-            puts "Ping send error: Broken pipe - WebSocket connection is closed"
-            puts "Reconnecting automatically..."
-            client.reconnect
-            break
-          rescue => e
-            puts "Ping send error: #{e.message}"
-            if e.message.include?('closed') || defined?(e.code)
-              puts "WebSocket connection is closed. Reconnecting..."
-              client.reconnect
-              break
-            end
-          end
-          sleep 30
-        end
       end
     end
     
