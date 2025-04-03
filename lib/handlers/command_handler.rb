@@ -29,7 +29,7 @@ module Handlers
       when '/afk'
         handle_afk_command(text, user_id, channel_id)
       when '/comeback'
-        handle_back_command(user_id, channel_id)
+        handle_comeback_command(text, user_id, channel_id)
       else
         puts "Unknown command: #{command}"
       end
@@ -62,6 +62,23 @@ module Handlers
       afk.bot_run(user_id, params)
     end
     
+    def handle_comeback_command(text, user_id, channel_id)
+      require_relative '../../app/mixins/slack_api_callerble'
+      require_relative '../../app/models/base'
+      require_relative '../../app/models/store'
+      require_relative '../../app/models/comemback'
+      
+      params = {
+        "user_id" => user_id,
+        "channel_id" => channel_id,
+        "text" => text || "",
+        "user_name" => get_username_safe(user_id)
+      }
+      
+      comeback = App::Model::Comeback.new
+      comeback.bot_run(user_id, params)
+    end
+    
     def get_username_safe(user_id)
       begin
         user_info = @web_client.users_info(user: user_id)
@@ -70,13 +87,6 @@ module Handlers
         puts "ユーザー情報取得エラー: #{e.message}" if ENV['DEBUG']
         user_id
       end
-    end
-    
-    def handle_back_command(user_id, channel_id)
-      @web_client.chat_postMessage(
-        channel: channel_id,
-        text: "<@#{user_id}> が戻りました！"
-      )
     end
   end
 end 
