@@ -71,7 +71,7 @@ module Handlers
         )
       end
     rescue => e
-      puts "メッセージ処理エラー: #{e.message}"
+      puts "Message processing error: #{e.message}"
     end
   end
 end 

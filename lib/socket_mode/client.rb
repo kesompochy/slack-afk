@@ -30,7 +30,7 @@ module SocketMode
       @running = false
       @ping_thread&.kill
       @ws.close if @ws && !@ws.closed?
-      puts "Socket Modeクライアントを停止しました"
+      puts "Socket Mode client stopped" if ENV['DEBUG']
     end
     
     def reconnect
@@ -47,12 +47,12 @@ module SocketMode
         response = app_client.apps_connections_open
         
         unless response['ok']
-          puts "Socket Mode URL取得に失敗: #{response['error'] || 'unknown error'}"
+          puts "Failed to get Socket Mode URL: #{response['error'] || 'unknown error'}"
           return
         end
         
         wss_url = response['url']
-        puts "Socket Mode URL取得: #{wss_url}"
+        puts "Socket Mode URL obtained: #{wss_url}" if ENV['DEBUG']
         
         # クロージャでSocketClientインスタンスを参照するための変数
         client = self
@@ -70,9 +70,9 @@ module SocketMode
             
             case data['type']
             when 'hello'
-              puts "Socket Modeに接続しました"
+              puts "Connected to Socket Mode" if ENV['DEBUG']
             when 'disconnect'
-              puts "切断要求を受信: #{data['reason']}"
+              puts "Received disconnect request: #{data['reason']}" if ENV['DEBUG']
               client.reconnect
             when 'events_api'
               client.send(:handle_events_api, data)
@@ -87,28 +87,28 @@ module SocketMode
               ws_connection.send(ack)
             end
           rescue JSON::ParserError => e
-            puts "JSONパースエラー: #{msg.data.inspect}"
+            puts "JSON parse error: #{msg.data.inspect}" if ENV['DEBUG']
           rescue => e
-            puts "メッセージ処理エラー: #{e.message}"
+            puts "Message processing error: #{e.message}"
             puts e.backtrace.join("\n") if ENV['DEBUG']
           end
         end
         
         @ws.on :error do |e|
-          puts "WebSocketエラー: #{e.message}"
+          puts "WebSocket error: #{e.message}"
         end
         
         @ws.on :close do |e|
-          puts "WebSocket切断: #{e.code} #{e.reason}"
+          puts "WebSocket disconnected: #{e.code} #{e.reason}" if ENV['DEBUG']
           
           if client.instance_variable_get(:@running)
-            puts "5秒後に再接続します..."
+            puts "Reconnecting in 5 seconds..." if ENV['DEBUG']
             sleep 5
             begin
               client.reconnect
             rescue => err
-              puts "再接続中にエラーが発生しました: #{err.message}"
-              puts "30秒後に再度試行します..."
+              puts "Error during reconnection: #{err.message}" if ENV['DEBUG']
+              puts "Will try again in 30 seconds..." if ENV['DEBUG']
               sleep 30
               client.reconnect rescue nil
             end
@@ -117,12 +117,11 @@ module SocketMode
         
         start_ping_thread
         
-        puts "Socket Mode接続を開始しました"
+        puts "Socket Mode connection started" if ENV['DEBUG']
       rescue Slack::Web::Api::Errors::SlackError => e
-        puts "Slack APIエラー: #{e.message}"
-        puts "SLACK_APP_TOKENが有効か確認してください（xapp-で始まる必要があります）"
+        puts "Slack API error: #{e.message}"
       rescue => e
-        puts "Socket Mode初期化エラー: #{e.message}"
+        puts "Socket Mode initialization error: #{e.message}"
         puts e.backtrace.join("\n") if ENV['DEBUG']
       end
     end
@@ -136,14 +135,14 @@ module SocketMode
           begin
             client.instance_variable_get(:@ws).send({ type: 'ping' }.to_json)
           rescue Errno::EPIPE => e
-            puts "Ping送信エラー: Broken pipe - WebSocket接続が切断されました"
-            puts "自動的に再接続します..."
+            puts "Ping send error: Broken pipe - WebSocket connection is closed"
+            puts "Reconnecting automatically..."
             client.reconnect
             break
           rescue => e
-            puts "Ping送信エラー: #{e.message}"
+            puts "Ping send error: #{e.message}"
             if e.message.include?('closed') || defined?(e.code)
-              puts "WebSocket接続が閉じられています。再接続します..."
+              puts "WebSocket connection is closed. Reconnecting..."
               client.reconnect
               break
             end
@@ -155,16 +154,16 @@ module SocketMode
     
     def handle_events_api(data)
       event_type = data.dig('payload', 'event', 'type')
-      puts "イベント受信: #{event_type || 'unknown'}" if ENV['DEBUG']
+      puts "Event received: #{event_type || 'unknown'}" if ENV['DEBUG']
       
       if ENV['DEBUG']
         event = data.dig('payload', 'event')
         if event
-          puts "イベント情報:"
-          puts "  タイプ: #{event['type']}"
-          puts "  チャンネル: #{event['channel']}" if event['channel']
-          puts "  ユーザー: #{event['user']}" if event['user']
-          puts "  テキスト: #{event['text']}" if event['text']
+          puts "Event details:"
+          puts "  Type: #{event['type']}"
+          puts "  Channel: #{event['channel']}" if event['channel']
+          puts "  User: #{event['user']}" if event['user']
+          puts "  Text: #{event['text']}" if event['text']
         end
       end
       
@@ -173,7 +172,7 @@ module SocketMode
     
     def handle_slash_commands(data)
       command = data.dig('payload', 'command')
-      puts "スラッシュコマンド受信: #{command || 'unknown'}" if ENV['DEBUG']
+      puts "Slash command received: #{command || 'unknown'}" if ENV['DEBUG']
       @dispatcher.dispatch_command(data)
     end
   end

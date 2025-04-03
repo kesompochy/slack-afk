@@ -15,7 +15,7 @@ module SocketMode
       return unless data['payload'] && data['payload']['event']
       
       event_type = data['payload']['event']['type']
-      puts "Dispatcherがイベントを処理: #{event_type}" if ENV['DEBUG']
+      puts "Dispatcher processing event: #{event_type}" if ENV['DEBUG']
       
       case event_type
       when 'message', 'app_mention'

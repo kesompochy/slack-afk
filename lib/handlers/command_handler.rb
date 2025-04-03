@@ -23,7 +23,7 @@ module Handlers
       channel_id = payload['channel_id']
       user_id = payload['user_id']
       
-      puts "Received command: #{command} with text: #{text} from user: #{user_id} in channel: #{channel_id}"
+      puts "Received command: #{command} with text: #{text} from user: #{user_id} in channel: #{channel_id}" if ENV['DEBUG']
       
       case command
       when '/afk'
@@ -44,7 +44,7 @@ module Handlers
         minutes = $1
         handle_timed_afk_command(text, user_id, channel_id, minutes)
       else
-        puts "Unknown command: #{command}"
+        puts "Unknown command: #{command}" if ENV['DEBUG']
       end
     rescue => e
       puts "Error handling command: #{e.message}"
@@ -194,7 +194,7 @@ module Handlers
         user_info = @web_client.users_info(user: user_id)
         user_info["ok"] ? user_info["user"]["name"] : user_id
       rescue => e
-        puts "ユーザー情報取得エラー: #{e.message}" if ENV['DEBUG']
+        puts "Error getting user info: #{e.message}"
         user_id
       end
     end
