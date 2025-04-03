@@ -6,7 +6,7 @@ require 'active_support/time'
 
 module App
   class Api < Sinatra::Base
-    include SlackApiCallerble
+    include SlackApiCallable
     use SlackAuth, ENV['SLACK_SIGNING_SECRET'], path: %w[/message /register /delete /stats]
     helpers Sinatra::CustomLogger
     configure :development, :staging, :production do

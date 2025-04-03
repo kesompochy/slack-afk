@@ -1,7 +1,7 @@
 module App
   module Model
     class Base
-      include SlackApiCallerble
+      include SlackApiCallable
       def reset(uid)
         RedisConnection.pool.lrem("registered", 0, uid)
         RedisConnection.pool.del(uid)

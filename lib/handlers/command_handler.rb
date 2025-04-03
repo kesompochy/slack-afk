@@ -41,7 +41,7 @@ module Handlers
     private
     
     def handle_afk_command(text, user_id, channel_id)
-      require_relative '../../app/mixins/slack_api_callerble'
+      require_relative '../../app/mixins/slack_api_callable'
       require_relative '../../app/models/base'
       require_relative '../../app/models/afk'
       
@@ -63,10 +63,10 @@ module Handlers
     end
     
     def handle_comeback_command(text, user_id, channel_id)
-      require_relative '../../app/mixins/slack_api_callerble'
+      require_relative '../../app/mixins/slack_api_callable'
       require_relative '../../app/models/base'
       require_relative '../../app/models/store'
-      require_relative '../../app/models/comemback'
+      require_relative '../../app/models/comeback'
       
       params = {
         "user_id" => user_id,
