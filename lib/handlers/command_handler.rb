@@ -28,7 +28,7 @@ module Handlers
       case command
       when '/afk'
         handle_afk_command(text, user_id, channel_id)
-      when '/lunch'
+      when '/lunch', '/afk_lunch'
         handle_lunch_command(text, user_id, channel_id)
       when '/comeback', '/afk_comeback'
         handle_comeback_command(text, user_id, channel_id)
