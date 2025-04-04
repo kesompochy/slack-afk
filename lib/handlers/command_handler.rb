@@ -118,11 +118,12 @@ module Handlers
       
       comeback = App::Model::Comeback.new
       response = comeback.run(user_id, params)
-
+      
       @web_client.chat_postEphemeral(
         channel: channel_id,
         user: user_id,
-        text: response
+        text: response,
+        mrkdwn: true
       )
     end
     
