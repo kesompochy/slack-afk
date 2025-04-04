@@ -25,6 +25,7 @@ module Handlers
       message_event = payload['event']
       
       return if message_event['subtype'] == 'bot_message'
+      return if message_event['subtype'] == 'channel_join'
       
       return if message_event['text'] =~ /\+\+|is up to [0-9]+ points!/
       
