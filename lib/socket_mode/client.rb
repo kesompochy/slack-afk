@@ -1,7 +1,8 @@
 require 'slack-ruby-client'
-require 'websocket-client-simple'
+require 'faye/websocket'
 require 'json'
 require 'uri'
+require 'eventmachine'
 require_relative './dispatcher'
 
 Slack.configure do |config|
@@ -10,116 +11,83 @@ end
 
 module SocketMode
   class Client
-    attr_reader :web_client, :socket_client, :dispatcher
+    attr_reader :web_client, :dispatcher
     
     def initialize
       @web_client = Slack::Web::Client.new(token: ENV['SLACK_BOT_TOKEN'])
-      @socket_client = nil
-      @ws = nil
       @dispatcher = Dispatcher.new(@web_client)
+      @ws = nil
       @running = false
-      @reconnect_interval = 30
-      @reset_thread = nil
+      @reconnect_mutex = Mutex.new
+      @reconnect_requested = false
+      @reconnect_attempts = 0
     end
     
     def start
-      connect_socket
-      
-      @main_thread = Thread.current
       @running = true
       
-      start_periodic_reset
+      Thread.new do
+        EM.run do
+          connect_socket
+        end
+      end
+      
+      puts "Socket Mode client started"
     end
     
     def stop
       @running = false
-      stop_periodic_reset
       close_connection
+      EM.stop if EM.reactor_running?
       puts "Socket Mode client stopped" if ENV['DEBUG']
-    end
-    
-    def reconnect
-      puts "Reconnecting Socket Mode client..." if ENV['DEBUG']
-      close_connection
-      sleep 2
-      connect_socket
     end
     
     private
     
     def close_connection
-      if @ws
-        begin
-          @ws.close if !@ws.closed?
-        rescue => e
-          puts "Error closing WebSocket connection: #{e.message}"
-        ensure
-          @ws = nil
-        end
-      end
-    end
-    
-    def start_periodic_reset
-      stop_periodic_reset if @reset_thread
-      
-      @reset_thread = Thread.new do
-        while @running
-          begin
-            sleep @reconnect_interval
-            puts "Performing scheduled connection reset" if ENV['DEBUG']
-            reconnect
-          rescue => e
-            puts "Error in reset thread: #{e.message}"
-            sleep 5
-          end
-        end
-      end
-    end
-    
-    def stop_periodic_reset
-      if @reset_thread && @reset_thread.alive?
-        @reset_thread.kill
-        @reset_thread = nil
-      end
+      return unless @ws
+      @ws.close
+      @ws = nil
     end
     
     def connect_socket
+      return unless @running
+      
       begin
         app_client = Slack::Web::Client.new(token: ENV['SLACK_APP_TOKEN'])
         response = app_client.apps_connections_open
         
         unless response['ok']
           puts "Failed to get Socket Mode URL: #{response['error'] || 'unknown error'}"
+          request_reconnect
           return
         end
         
         wss_url = response['url']
         puts "Socket Mode URL obtained: #{wss_url}" if ENV['DEBUG']
         
-        # クロージャでSocketClientインスタンスを参照するための変数
-        client = self
+        @ws = Faye::WebSocket::Client.new(wss_url, nil, { ping: 30 })
         
-        @ws = WebSocket::Client::Simple.connect(wss_url)
-        ws_connection = @ws
+        @ws.on :open do |event|
+          puts "WebSocket connection established" if ENV['DEBUG']
+          @reconnect_attempts = 0
+        end
         
-        @ws.on :message do |msg|
-          if msg.data.start_with?('Ping from')
+        @ws.on :message do |event|
+          data = event.data
+          
+          if data.is_a?(String) && data.start_with?('Ping from')
+            puts "Received ping: #{data}" if ENV['DEBUG']
             next
           end
           
           begin
-            data = JSON.parse(msg.data)
+            data = JSON.parse(data)
             
             if data['envelope_id']
               ack = { envelope_id: data['envelope_id'] }.to_json
-              begin
-                ws_connection.send(ack)
-              rescue => e
-                puts "Failed to send acknowledge: #{e.message}" if ENV['DEBUG']
-                if e.message.include?('closed')
-                  client.reconnect
-                end
-              end
+              @ws.send(ack)
+              puts "Acknowledged event with envelope_id: #{data['envelope_id']}" if ENV['DEBUG']
             end
             
             case data['type']
@@ -127,53 +95,55 @@ module SocketMode
               puts "Connected to Socket Mode" if ENV['DEBUG']
             when 'disconnect'
               puts "Received disconnect request: #{data['reason']}" if ENV['DEBUG']
-              client.reconnect
+              request_reconnect
             when 'events_api'
-              client.send(:handle_events_api, data)
+              handle_events_api(data)
             when 'slash_commands'
-              client.send(:handle_slash_commands, data)
+              handle_slash_commands(data)
             when 'interactive'
+              puts "Received interactive event: #{data['payload']['type']}" if ENV['DEBUG']
             else
+              puts "Received unknown event type: #{data['type']}" if ENV['DEBUG']
             end
           rescue JSON::ParserError => e
-            puts "JSON parse error: #{msg.data.inspect}" if ENV['DEBUG']
+            puts "JSON parse error: #{data.inspect}" if ENV['DEBUG']
           rescue => e
             puts "Message processing error: #{e.message}"
             puts e.backtrace.join("\n") if ENV['DEBUG']
           end
         end
         
-        @ws.on :error do |e|
-          puts "WebSocket error: #{e.message}"
-          if client.instance_variable_get(:@running)
-            puts "Reconnecting due to WebSocket error..." if ENV['DEBUG']
-            client.reconnect
-          end
+        @ws.on :error do |event|
+          puts "WebSocket error: #{event.message}"
+          request_reconnect
         end
         
-        @ws.on :close do |e|
-          puts "WebSocket disconnected: #{e.code} #{e.reason}" if ENV['DEBUG']
-          
-          if client.instance_variable_get(:@running)
-            puts "Reconnecting in 5 seconds..." if ENV['DEBUG']
-            sleep 5
-            begin
-              client.reconnect
-            rescue => err
-              puts "Error during reconnection: #{err.message}" if ENV['DEBUG']
-              puts "Will try again in 30 seconds..." if ENV['DEBUG']
-              sleep 30
-              client.reconnect rescue nil
-            end
-          end
+        @ws.on :close do |event|
+          puts "WebSocket disconnected: #{event.code} #{event.reason}" if ENV['DEBUG']
+          request_reconnect if @running
         end
-        
-        puts "Socket Mode connection started" if ENV['DEBUG']
-      rescue Slack::Web::Api::Errors::SlackError => e
-        puts "Slack API error: #{e.message}"
       rescue => e
         puts "Socket Mode initialization error: #{e.message}"
         puts e.backtrace.join("\n") if ENV['DEBUG']
+        request_reconnect
+      end
+    end
+    
+    def request_reconnect
+      @reconnect_mutex.synchronize do
+        return if @reconnect_requested
+        @reconnect_requested = true
+        
+        @reconnect_attempts += 1
+        delay = [2 ** @reconnect_attempts, 30].min
+        
+        puts "Reconnecting in #{delay} seconds (attempt #{@reconnect_attempts})" if ENV['DEBUG']
+        
+        EM.add_timer(delay) do
+          @reconnect_requested = false
+          close_connection
+          connect_socket
+        end
       end
     end
     
