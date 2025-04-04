@@ -72,7 +72,13 @@ module Handlers
       end
       
       afk = App::Model::Afk.new
-      afk.run(user_id, params)
+      response = afk.run(user_id, params)
+      
+      @web_client.chat_postEphemeral(
+        channel: channel_id,
+        user: user_id,
+        text: response
+      )
     end
     
     def handle_lunch_command(text, user_id, channel_id)
@@ -88,7 +94,13 @@ module Handlers
       }
       
       lunch = App::Model::Lunch.new
-      lunch.run(user_id, params)
+      response = lunch.run(user_id, params)
+      
+      @web_client.chat_postEphemeral(
+        channel: channel_id,
+        user: user_id,
+        text: response
+      )
     end
     
     def handle_comeback_command(text, user_id, channel_id)
@@ -105,7 +117,13 @@ module Handlers
       }
       
       comeback = App::Model::Comeback.new
-      comeback.run(user_id, params)
+      response = comeback.run(user_id, params)
+
+      @web_client.chat_postEphemeral(
+        channel: channel_id,
+        user: user_id,
+        text: response
+      )
     end
     
     def handle_finish_command(text, user_id, channel_id)
@@ -122,7 +140,13 @@ module Handlers
       }
       
       finish = App::Model::Finish.new
-      finish.run(user_id, params)
+      response = finish.run(user_id, params)
+      
+      @web_client.chat_postEphemeral(
+        channel: channel_id,
+        user: user_id,
+        text: response
+      )
     end
     
     def handle_start_command(text, user_id, channel_id)
@@ -139,7 +163,13 @@ module Handlers
       }
       
       start = App::Model::Start.new
-      start.run(user_id, params)
+      response = start.run(user_id, params)
+      
+      @web_client.chat_postEphemeral(
+        channel: channel_id,
+        user: user_id,
+        text: response
+      )
     end
     
     def handle_enable_afk_command(text, user_id, channel_id)
@@ -186,7 +216,13 @@ module Handlers
       }
       
       afk = App::Model::Afk.new
-      afk.run(user_id, params)
+      response = afk.run(user_id, params)
+      
+      @web_client.chat_postEphemeral(
+        channel: channel_id,
+        user: user_id,
+        text: response
+      )
     end
     
     def get_username_safe(user_id)
