@@ -30,7 +30,7 @@ module Handlers
         handle_afk_command(text, user_id, channel_id)
       when '/lunch'
         handle_lunch_command(text, user_id, channel_id)
-      when '/comeback'
+      when '/comeback', '/afk_comeback'
         handle_comeback_command(text, user_id, channel_id)
       when '/finish', '/end', '/afk_end'
         handle_finish_command(text, user_id, channel_id)
