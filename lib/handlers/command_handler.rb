@@ -94,13 +94,7 @@ module Handlers
       }
       
       lunch = App::Model::Lunch.new
-      response = lunch.run(user_id, params)
-      
-      @web_client.chat_postEphemeral(
-        channel: channel_id,
-        user: user_id,
-        text: response
-      )
+      lunch.run(user_id, params)
     end
     
     def handle_comeback_command(text, user_id, channel_id)
